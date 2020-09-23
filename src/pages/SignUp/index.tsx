@@ -1,7 +1,12 @@
-import React,{ useRef, useCallback} from 'react'
+import React,{ useRef, useCallback, useContext} from 'react'
 import { FiUser ,FiArrowLeft, FiMail, FiLock } from 'react-icons/fi'
 import { Form } from '@unform/web';
 import { FormHandles } from '@unform/core'
+import { Link, useHistory } from 'react-router-dom'
+
+import { api } from '../../services/api';
+import { useToast } from '../../hooks/toast'
+import { useAuth  } from '../../hooks/auth'
 
 import * as S from './styles'
 import logoImage from '../../assets/logo.svg'
@@ -12,11 +17,19 @@ import getValidationErrors from '../../utils/getValidationErrors';
 import Input from '../../components/Input'
 import Button from '../../components/Button'
 
+interface SignUpFormData{
+  name: string;
+  email: string;
+  password: string;
+}
+
 const SignUp: React.FC = () => {
   const formRef = useRef<FormHandles>(null)
+  const { addToast } = useToast()
+  const { signIn } = useAuth()
+  const history = useHistory();
 
-  const handleSubmit = useCallback( async (data: object) => {
-   
+  const handleSubmit = useCallback( async (data: SignUpFormData) => {
     try {
       formRef.current?.setErrors({});
       const schema = Yup.object().shape({
@@ -27,31 +40,52 @@ const SignUp: React.FC = () => {
       await schema.validate(data,{
         abortEarly: false
       })
+
+      await api.post('/users', data);
+
+      addToast({
+        title: "Cadastro Realizado",
+        description: "Seu cadastro foi realizado com Sucesso",
+        type: "success"
+      })
+
+      history.push('/')
+
     } catch (error) {
-      const errors =  getValidationErrors(error);
+      if(error instanceof Yup.ValidationError){
+        const errors =  getValidationErrors(error);
+        formRef.current?.setErrors(errors);
+        
+        return;
+      }
       
-      formRef.current?.setErrors(errors);
+      addToast({
+        type : "error",
+        title: "Erro no cadastro",
+        description : "Ocorreu um erro ao se cadastrar",
+      })
     }
 
-  },[])
+  },[addToast, history])
 
   return(
     <S.Container>
       <S.Background />
       <S.Content>
-        <img src={logoImage} alt="GoBarber" />
+        <S.AnimatedContainer>
+          <img src={logoImage} alt="GoBarber" />
+          
+          <Form ref={formRef} onSubmit={handleSubmit}>
+            <h1>Faça seu cadastro</h1>
+            <Input name="name" icon={FiUser} placeholder="Name" />
+            <Input name="email" icon={FiMail} placeholder="E-mail" />
+            <Input name="password" icon={FiLock} placeholder="Senha" type="password" />
 
-        <Form ref={formRef} onSubmit={handleSubmit}>
-          <h1>Faça seu cadastro</h1>
-          <Input name="name" icon={FiUser} placeholder="Name" />
-          <Input name="email" icon={FiMail} placeholder="E-mail" />
-          <Input name="password" icon={FiLock} placeholder="Senha" type="password" />
+            <Button type="submit">Cadastrar</Button>
+          </Form>
 
-          <Button type="submit">Cadastrar</Button>
-        </Form>
-
-        <a href="login"><FiArrowLeft /> Voltar para o login</a>
-
+          <Link to="/"><FiArrowLeft /> Voltar para o login</Link>
+        </S.AnimatedContainer>
       </S.Content>
       
     </S.Container>
